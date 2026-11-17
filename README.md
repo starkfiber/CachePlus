@@ -84,6 +84,6 @@ The runner sets `TMPDIR`, `XDG_CACHE_HOME`, npm, pip, uv and Cargo target paths.
 
 CachePlus is [MIT licensed](LICENSE). Contributions are welcome for filesystem quotas, Windows support, mount health checks, native cloud adapters, richer MCP client guides and measured performance. Run `python3 -m unittest discover -s tests -v` before a pull request. Keep provider credentials and personal data out of issues and test fixtures.
 
-Current release: **0.4.0 MVP**. The mounted-volume runner, CLI, MCP and local API have bounded local tests. Linux CI and real USB/NAS/cloud provider runs still need independent confirmation. See the [measured benchmark and WhatIF results](docs/BENCHMARKS.md).
+Current release: **0.4.0 MVP**. The mounted-volume runner, CLI, MCP and local API have bounded local tests. The macOS/Linux Python 3.10/3.13 CI matrix passed; physical USB, NAS and cloud provider runs still need independent testing. See the [measured benchmark and WhatIF results](docs/BENCHMARKS.md).
 
 See the [product page](docs/index.html).
