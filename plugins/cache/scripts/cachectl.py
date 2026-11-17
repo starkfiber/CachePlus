@@ -23,6 +23,42 @@ def load_config():
         return {}
 
 
+def save_config(config):
+    CONFIG_PATH.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    temp = CONFIG_PATH.with_suffix(".tmp")
+    temp.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    os.chmod(temp, 0o600)
+    temp.replace(CONFIG_PATH)
+
+
+def profiles(config=None):
+    config = load_config() if config is None else config
+    found = config.get("profiles", {})
+    if not isinstance(found, dict):
+        found = {}
+    if config.get("volume") and not found:
+        found = {"default": {key: config[key] for key in
+                             ("volume", "limit_gb", "min_free_gib", "recover_to_gib") if key in config}}
+    return found
+
+
+def validate_mount(raw_path):
+    selected = Path(raw_path).expanduser().resolve(strict=True)
+    if not selected.is_dir() or selected == Path("/") or not os.path.ismount(selected):
+        raise ValueError("Select an existing mounted volume, not a folder or the root disk")
+    if not os.access(selected, os.W_OK):
+        raise ValueError("The mounted volume is not writable by this user")
+    return selected
+
+
+def activate(config, name):
+    profile = profiles(config)[name]
+    for key in ("volume", "limit_gb", "min_free_gib", "recover_to_gib"):
+        config[key] = profile[key]
+    config["active_profile"] = name
+    return config
+
+
 for key, value in load_config().items():
     environment_key = {"volume": "CACHE_VOLUME", "limit_gb": "CACHE_LIMIT_GB",
                        "min_free_gib": "CACHE_MIN_FREE_GIB", "recover_to_gib": "CACHE_RECOVER_TO_GIB"}.get(key)
@@ -117,14 +153,20 @@ def bank_call(arguments):
     return subprocess.call([sys.executable, str(PACKAGED_BANK), *arguments])
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
     commands.add_parser("status", help="Show physical free space and completed bank jobs")
     configure = commands.add_parser("configure", help="Choose an existing mounted cache volume")
     configure.add_argument("volume")
+    configure.add_argument("--name", default="default", help="Reusable profile name")
+    configure.add_argument("--kind", choices=("internal", "usb", "external", "nas", "cloud-mount"),
+                           default="external", help="Storage type; cloud-mount requires your own mounted drive")
     configure.add_argument("--limit-gb", type=float, default=150)
     configure.add_argument("--min-free-gib", type=float, default=40)
+    commands.add_parser("backends", help="List configured storage profiles and mount state")
+    use = commands.add_parser("use", help="Select a configured mounted storage profile")
+    use.add_argument("name")
     review = commands.add_parser("assess", help="Conservatively classify one exact path")
     review.add_argument("path")
     run = commands.add_parser("run", help="Run explicitly disposable work in a guarded slot")
@@ -133,22 +175,47 @@ def main():
     run.add_argument("command", nargs=argparse.REMAINDER)
     reclaim = commands.add_parser("reclaim", help="Preview or reclaim completed bank jobs")
     reclaim.add_argument("--yes", action="store_true", help="Reclaim the previewed completed jobs")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.action == "configure":
-        selected = Path(args.volume).expanduser().resolve(strict=True)
-        if not selected.is_dir() or selected == Path("/") or not os.path.ismount(selected):
-            parser.error("configure requires an existing dedicated mounted volume, not the root disk")
+        try:
+            selected = validate_mount(args.volume)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
         if args.limit_gb <= 0 or args.min_free_gib < 0:
             parser.error("limit must be positive and minimum free space cannot be negative")
-        config = {"volume": str(selected), "limit_gb": args.limit_gb,
-                  "min_free_gib": args.min_free_gib,
-                  "recover_to_gib": max(60, args.min_free_gib)}
-        CONFIG_PATH.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-        temp = CONFIG_PATH.with_suffix(".tmp")
-        temp.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        os.chmod(temp, 0o600)
-        temp.replace(CONFIG_PATH)
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", args.name):
+            parser.error("profile name must use letters, digits, underscores or hyphens")
+        config = load_config()
+        config["profiles"] = profiles(config)
+        config["profiles"][args.name] = {"volume": str(selected), "kind": args.kind,
+                                         "limit_gb": args.limit_gb, "min_free_gib": args.min_free_gib,
+                                         "recover_to_gib": max(60, args.min_free_gib)}
+        activate(config, args.name)
+        save_config(config)
         print(json.dumps({"configured": config, "path": str(CONFIG_PATH)}, indent=2))
+        return 0
+    if args.action == "backends":
+        config = load_config()
+        items = []
+        for name, profile in profiles(config).items():
+            path = Path(profile["volume"])
+            items.append({"name": name, "kind": profile.get("kind", "external"),
+                          "path": str(path), "mounted": os.path.ismount(path),
+                          "active": config.get("active_profile", "default") == name})
+        print(json.dumps({"backends": items}, indent=2))
+        return 0
+    if args.action == "use":
+        config = load_config()
+        found = profiles(config)
+        if args.name not in found:
+            parser.error("unknown profile")
+        try:
+            validate_mount(found[args.name]["volume"])
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        activate(config, args.name)
+        save_config(config)
+        print(json.dumps({"active_profile": args.name, "volume": config["volume"]}, indent=2))
         return 0
     if args.action == "assess":
         print(json.dumps(assess(args.path), indent=2))
