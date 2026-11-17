@@ -25,6 +25,7 @@ cd CachePlus
 python3 -m pip install --user .
 cacheplus configure /Volumes/OldSSD --name old-ssd --kind external --limit-gb 100
 cacheplus status
+cacheplus status --deep      # optional measured size of older completed jobs
 cacheplus run --disposable my-app -- npm test
 cacheplus reclaim            # preview exact completed jobs
 cacheplus reclaim --yes      # apply the preview
@@ -83,6 +84,6 @@ The runner sets `TMPDIR`, `XDG_CACHE_HOME`, npm, pip, uv and Cargo target paths.
 
 CachePlus is [MIT licensed](LICENSE). Contributions are welcome for filesystem quotas, Windows support, mount health checks, native cloud adapters, richer MCP client guides and measured performance. Run `python3 -m unittest discover -s tests -v` before a pull request. Keep provider credentials and personal data out of issues and test fixtures.
 
-Current release: **0.3.0 public alpha**. The macOS runner and protocol smoke tests are exercised locally; broad cross-platform and provider validation remain open.
+Current release: **0.4.0 MVP**. The mounted-volume runner, CLI, MCP and local API have bounded local tests. Linux CI and real USB/NAS/cloud provider runs still need independent confirmation. See the [measured benchmark and WhatIF results](docs/BENCHMARKS.md).
 
 See the [product page](docs/index.html).
