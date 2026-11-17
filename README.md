@@ -1,42 +1,88 @@
-# Cache
+<p align="center"><img src="assets/cacheplus-mark.png" alt="CachePlus mark" width="112"></p>
+<h1 align="center">CachePlus</h1>
+<p align="center"><strong>Use the storage you already own for the work you can rebuild.</strong></p>
+<p align="center">USB · old HDD · external SSD · NAS · mounted cloud drive · internal cache volume</p>
 
-**A disposable workspace for Codex builds.** Keep the work you need. Give rebuildable outputs a place with a limit and a clean exit.
+![An old hard drive, USB stick, external SSD, NAS and cloud drive connected to one cache hub](assets/cacheplus-hero.png)
 
-Cache is a local Codex plugin. It assesses a path, runs an explicitly disposable command in a guarded job slot, and previews exact completed jobs before reclaim. It does not upload files, move chats, rewrite Git history, or relocate macOS swap.
+## Your laptop should keep the work that matters
 
-## What it solves
+Builds, dependency caches and generated previews expand until they crowd out source files and daily work. CachePlus gives **explicitly disposable jobs** a named storage profile, a size budget, a physical free-space floor and a precise way to reclaim completed jobs. Source, Git, chats and unique files stay where they belong.
 
-Builds, dependency caches, test runs and generated previews can crowd a development machine. Cache routes the parts that can be rebuilt into a separate mounted volume. It checks free space while the command runs and stops the job if the buffer or configured bank limit is reached. The assessor is deliberately cautious: a folder named `build` is not automatically safe to remove.
-
-## Start
-
-1. Install the [Codex marketplace](https://developers.openai.com/plugins/build/plugins): `codex plugin marketplace add starkfiber/Cache`, then `codex plugin add cache@cache`. A local executor is required. If the app does not show the new skill immediately, restart it.
-2. On macOS or Linux, prepare a dedicated cache volume. Configure it once: `python3 plugins/cache/scripts/cachectl.py configure /path/to/mounted-volume` (for example, `/Volumes/BuildCache` on macOS). The runner refuses to write if the configured mount is absent. It does not create or format a volume.
-3. Type `/cache` and select the enabled **Cache** skill from the slash list, or mention `$cache:cache` in Codex. The desktop client lists enabled skills alongside slash commands; the skill is also available through `$` mention.
-
-CLI examples from the repository root:
-
-```sh
-python3 plugins/cache/scripts/cachectl.py status
-python3 plugins/cache/scripts/cachectl.py assess "$HOME/Projects/example/build"
-python3 plugins/cache/scripts/cachectl.py run --disposable my-app -- npm test
-python3 plugins/cache/scripts/cachectl.py reclaim
+```text
+mount a drive  →  configure a profile  →  run a disposable job  →  inspect  →  reclaim
 ```
 
-`reclaim --yes` applies only to the completed owned jobs shown in the preview. It never sweeps an arbitrary directory.
+CachePlus is local-first. It does not create accounts, format drives, upload files, move macOS swap or silently intercept every program. A remote mount can carry job data to its provider, so select it only when that is acceptable.
 
-## Limits
+## Start in two minutes
 
-- macOS is tested. Linux uses the bundled mounted-volume runner but has not had a full end-to-end release test. Windows job execution is not supported yet.
-- The 150 GB value on the original Mac is an APFS volume quota, not a reserved SSD partition. Other computers need their own volume and optional filesystem quota. The bundled runner's `CACHE_LIMIT_GB` is a **soft runtime cap**, not a filesystem quota.
-- Environment variables cover common tool caches. Project-local outputs may still go to the source tree unless the build tool receives an explicit output path.
-- Cache cannot control Codex's persistent session storage or the operating system's swap.
-- A single device is not a backup. Cache is for reproducible data only.
+Requires Python 3.10+ and macOS or Linux for job execution. Mount a writable volume you control first. CachePlus refuses an ordinary folder or missing mount.
 
-## Product status
+```sh
+git clone https://github.com/starkfiber/CachePlus.git
+cd CachePlus
+python3 -m pip install --user .
+cacheplus configure /Volumes/OldSSD --name old-ssd --kind external --limit-gb 100
+cacheplus status
+cacheplus run --disposable my-app -- npm test
+cacheplus reclaim            # preview exact completed jobs
+cacheplus reclaim --yes      # apply the preview
+```
 
-Version 0.2 is a public alpha. The source and local marketplace are available here; the plugin has not been submitted to the universal Plugins Directory.
+For a NAS mounted at `/mnt/build-nas` or a user-mounted cloud drive at `/mnt/cloud-cache`:
 
-## Development
+```sh
+cacheplus configure /mnt/build-nas --name nas --kind nas --limit-gb 80
+cacheplus configure /mnt/cloud-cache --name cloud --kind cloud-mount --limit-gb 20
+cacheplus backends
+cacheplus use nas
+```
 
-The plugin is self-contained under `plugins/cache/`, with a repository marketplace at `.agents/plugins/marketplace.json`. It uses Python's standard library and local system utilities. The same bundled bank runs on configured computers. No remote service is required.
+The CLI supports `internal`, `usb`, `external`, `nas` and `cloud-mount` profile labels. Each must resolve to a writable mounted volume. Cloud account authentication and mounting are handled by the user's OS or drive client; CachePlus does **not** connect directly to Google Drive, S3, Dropbox or other account APIs in this release.
+
+## Use with coding agents
+
+The Codex plugin keeps the short **`/cache`** skill name. Install the marketplace with `codex plugin marketplace add starkfiber/CachePlus`, then `codex plugin add cache@cache`. Restart Codex if the skill does not appear immediately.
+
+CachePlus includes a **read-only MCP server**. Its tools report free space, list profiles and assess an exact path. A coding agent can use those signals before deciding whether a command is genuinely disposable. Configure a stdio MCP client to run `cacheplus mcp`. The plugin also bundles `plugins/cache/mcp.json`. Claude, Z.ai, Antigravity and other MCP clients may use the same command if they support local MCP servers; their client-specific setup has not been tested here. MCP tools do not execute jobs or remove files.
+
+## Local API
+
+```sh
+cacheplus api --port 8767
+curl http://127.0.0.1:8767/v1/status
+curl http://127.0.0.1:8767/v1/backends
+curl 'http://127.0.0.1:8767/v1/assess?path=/path/to/build'
+```
+
+The API binds to loopback and is read-only. A future write API needs authentication and a stronger capability model.
+
+## What is supported
+
+| Storage | Current support | Notes |
+| --- | --- | --- |
+| Internal APFS or Linux mounted volume | Yes | Use a separate volume; filesystem quotas are set outside CachePlus. |
+| USB stick, old HDD, external SSD | Yes, when mounted | Prefer reliable media. A disconnected device is not a backup. |
+| NAS / network filesystem | Mounted-path support | Durability and speed depend on network and mount. |
+| Cloud drive | Mounted-path support | User supplies the mount and account; only disposable, authorized data should go there. |
+| Native cloud account APIs | Planned | No built-in OAuth or object-store driver yet. |
+| Windows job execution | Planned | The runner requires Unix locking today. |
+
+The runner sets `TMPDIR`, `XDG_CACHE_HOME`, npm, pip, uv and Cargo target paths. Tools that ignore these variables need an explicit output argument. The limit is a **soft cap checked during execution**, not a hard disk partition or a promise that the computer can never run out of space. Set a filesystem quota separately where supported. A job can briefly overshoot between checks.
+
+## Safety model
+
+- Only exact CachePlus-owned completed slots are eligible for reclaim. Open handles and failed jobs stay untouched.
+- Configured mounts are checked before use. If a USB or NAS path is missing, the runner refuses to write into the empty mountpoint.
+- Source, Git, chats, histories, credentials, app state and sole copies are persistent data.
+- The assessor is a conservative review aid, not permission to purge a folder.
+- One drive, including a cloud sync folder, is not an independent backup.
+
+## Contribute
+
+CachePlus is [MIT licensed](LICENSE). Contributions are welcome for filesystem quotas, Windows support, mount health checks, native cloud adapters, richer MCP client guides and measured performance. Run `python3 -m unittest discover -s tests -v` before a pull request. Keep provider credentials and personal data out of issues and test fixtures.
+
+Current release: **0.3.0 public alpha**. The macOS runner and protocol smoke tests are exercised locally; broad cross-platform and provider validation remain open.
+
+See the [product page](docs/index.html).

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cacheplus"
+version = "0.3.0"
+description = "Bounded, disposable storage for local development and coding agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+keywords = ["cache", "storage", "codex", "mcp", "builds"]
+
+[project.scripts]
+cacheplus = "cacheplus:main"
+
+[tool.setuptools]
+py-modules = ["cacheplus", "cachectl", "bank", "cacheplus_api", "cacheplus_mcp"]
+package-dir = {"" = "plugins/cache/scripts"}
