@@ -1,0 +1,21 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cache",
+  "version": "0.2.0",
+  "description": "Keep rebuildable Codex work in a disposable local cache and inspect space safely.",
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Cache",
+        "shortDescription": "Route rebuildable work away from persistent files",
+        "longDescription": "Inspect storage, run explicitly disposable builds in a guarded cache volume, and reclaim only completed owned jobs.",
+        "category": "Productivity",
+        "defaultPrompt": [
+          "Use Cache to inspect what is consuming space and show safe options.",
+          "Use Cache for this rebuildable build and show physical space before and after."
+        ]
+      }
+    }
+  }
+}
