@@ -10,7 +10,7 @@ Builds, dependency caches, test runs and generated previews can crowd a developm
 
 ## Start
 
-1. Clone this repository and add it as a [local Codex marketplace](https://developers.openai.com/plugins/build/plugins): `codex plugin marketplace add /absolute/path/to/Cache`, then `codex plugin add cache@cache`. A local executor is required. If the app does not show the new skill immediately, restart it.
+1. Install the [Codex marketplace](https://developers.openai.com/plugins/build/plugins): `codex plugin marketplace add starkfiber/Cache`, then `codex plugin add cache@cache`. A local executor is required. If the app does not show the new skill immediately, restart it.
 2. On macOS or Linux, prepare a dedicated cache volume. Configure it once: `python3 plugins/cache/scripts/cachectl.py configure /path/to/mounted-volume` (for example, `/Volumes/BuildCache` on macOS). The runner refuses to write if the configured mount is absent. It does not create or format a volume.
 3. Type `/cache` and select the enabled **Cache** skill from the slash list, or mention `$cache:cache` in Codex. The desktop client lists enabled skills alongside slash commands; the skill is also available through `$` mention.
 
