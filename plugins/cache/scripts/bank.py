@@ -103,7 +103,8 @@ def status():
     free = free_gib()
     evictable = sum(item[2] for item in jobs) / GIB
     return {"free_gib": round(free, 2), "completed_cache_gib": round(evictable, 2),
-            "usable_after_cache_reclaim_gib": round(free + evictable, 2),
+            "usable_after_cache_reclaim_gib": round(free, 2),
+            "reclaim_note": "Cache jobs may live on another physical device; reclaim is not counted as Mac free space until measured.",
             "volume_mounted": bool(VOLUME and os.path.ismount(VOLUME)),
             "configured_volume": str(VOLUME) if VOLUME else None,
             "volume_quota_gb": None,
