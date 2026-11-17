@@ -1,0 +1,12 @@
+{
+  "name": "cache",
+  "interface": {"displayName": "Cache"},
+  "plugins": [
+    {
+      "name": "cache",
+      "source": {"source": "local", "path": "./plugins/cache"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "category": "Productivity"
+    }
+  ]
+}
