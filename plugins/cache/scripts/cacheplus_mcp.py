@@ -30,7 +30,7 @@ def dispatch(message):
         requested = params.get("protocolVersion", "2025-11-25")
         version = requested if requested in ("2025-11-25", "2025-06-18") else "2025-11-25"
         return {"protocolVersion": version, "capabilities": {"tools": {}},
-                "serverInfo": {"name": "cacheplus", "version": "0.3.0"}}
+                "serverInfo": {"name": "cacheplus", "version": "0.4.0"}}
     if method == "ping":
         return {}
     if method == "tools/list":
@@ -59,11 +59,13 @@ def dispatch(message):
                     or len(command) > 128 or not all(isinstance(item, str) and item and "\x00" not in item
                                                 for item in command)):
                 raise ValueError("Explicit disposable=true, safe label and non-empty string command array are required")
+            bank.refresh_settings()
+            slot_path = str(bank.JOBS / ("slot-" + label)) if bank.JOBS else None
             finished = subprocess.run([sys.executable, str(cachectl.PACKAGED_BANK),
                                        "run", label, "--", *command],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             value = {"exit_code": finished.returncode, "label": label,
-                     "slot": str(bank.JOBS / ("slot-" + label)) if bank.JOBS else None,
+                     "slot": slot_path,
                      "note": "Inspect command outputs; CachePlus is not a sandbox. Use CLI for live output."}
         else:
             raise ValueError("Unknown tool")

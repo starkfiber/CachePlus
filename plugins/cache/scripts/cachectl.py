@@ -59,17 +59,15 @@ def activate(config, name):
     return config
 
 
-for key, value in load_config().items():
-    environment_key = {"volume": "CACHE_VOLUME", "limit_gb": "CACHE_LIMIT_GB",
-                       "min_free_gib": "CACHE_MIN_FREE_GIB", "recover_to_gib": "CACHE_RECOVER_TO_GIB"}.get(key)
-    if environment_key and environment_key not in os.environ:
-        os.environ[environment_key] = str(value)
-
-VOLUME = Path(os.environ["CACHE_VOLUME"]).expanduser() if os.environ.get("CACHE_VOLUME") else None
-JOBS = VOLUME / "Disposable Jobs/jobs" if VOLUME else None
 PACKAGED_BANK = Path(__file__).with_name("bank.py")
 GIB = 1024 ** 3
 GENERATED_NAMES = {"build", "dist", ".next", "node_modules", "target", "deriveddata", ".cxx", "__pycache__"}
+
+
+def selected_jobs():
+    config = load_config()
+    raw = os.environ.get("CACHE_VOLUME") or config.get("volume")
+    return Path(raw).expanduser() / "Disposable Jobs/jobs" if raw else None
 
 
 def under(path, parent):
@@ -112,7 +110,8 @@ def assess(raw_path):
     if supplied.is_symlink():
         result.update(decision="keep", reason="Symlink target and ownership require a separate review.")
         return result
-    if JOBS and under(path, JOBS) and path.parent == JOBS and path.name.startswith("slot-"):
+    jobs = selected_jobs()
+    if jobs and under(path, jobs) and path.parent == jobs and path.name.startswith("slot-"):
         marker = path / "completed.json"
         try:
             info = path.lstat()
@@ -156,7 +155,8 @@ def bank_call(arguments):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
-    commands.add_parser("status", help="Show physical free space and completed bank jobs")
+    current = commands.add_parser("status", help="Show physical free space and completed bank jobs")
+    current.add_argument("--deep", action="store_true", help="Measure all completed job sizes; slower")
     configure = commands.add_parser("configure", help="Choose an existing mounted cache volume")
     configure.add_argument("volume")
     configure.add_argument("--name", default="default", help="Reusable profile name")
@@ -220,13 +220,16 @@ def main(argv=None):
     if args.action == "assess":
         print(json.dumps(assess(args.path), indent=2))
         return 0
+    if args.action == "status":
+        return bank_call(["status", "--deep"] if args.deep else ["status"])
     if args.action == "run":
         command = args.command[1:] if args.command and args.command[0] == "--" else args.command
         if not command or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", args.label):
             parser.error("run requires a safe label and a command after --")
         return bank_call(["run", args.label, "--", *command])
     if args.action == "reclaim":
-        preview = [assess(str(path)) for path in sorted(JOBS.glob("slot-*"))] if JOBS else []
+        jobs = selected_jobs()
+        preview = [assess(str(path)) for path in sorted(jobs.glob("slot-*"))] if jobs else []
         ready = [item for item in preview if item["safe_to_reclaim"]]
         print(json.dumps({"reclaimable_jobs": ready,
                           "total_allocated_gib": round(sum(item["allocated_gib"] or 0 for item in ready), 3),

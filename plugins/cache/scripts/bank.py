@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -34,6 +35,28 @@ RECOVER_TO_GIB = max(MIN_FREE_GIB, float(os.environ.get("CACHE_RECOVER_TO_GIB", 
 MIN_AGE_SECONDS = 0
 if MAX_BANK_GIB <= 0 or MIN_FREE_GIB < 0:
     raise SystemExit("CACHE_LIMIT_GB must be positive and CACHE_MIN_FREE_GIB cannot be negative")
+SETTINGS_LOCK = threading.RLock()
+
+
+def refresh_settings():
+    """Refresh a long-lived API/MCP process after a CLI profile switch."""
+    global VOLUME, ROOT, JOBS, LOCK, MAX_BANK_GIB, MIN_FREE_GIB, RECOVER_TO_GIB
+    try:
+        current = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        if not isinstance(current, dict):
+            current = {}
+    except (OSError, ValueError):
+        current = {}
+    raw = os.environ.get("CACHE_VOLUME") or current.get("volume")
+    VOLUME = Path(raw).expanduser() if raw else None
+    ROOT = VOLUME / "Disposable Jobs" if VOLUME else None
+    JOBS = ROOT / "jobs" if ROOT else None
+    LOCK = ROOT / "bank.lock" if ROOT else None
+    MAX_BANK_GIB = float(os.environ.get("CACHE_LIMIT_GB", current.get("limit_gb", 150))) * 1_000_000_000 / GIB
+    MIN_FREE_GIB = float(os.environ.get("CACHE_MIN_FREE_GIB", current.get("min_free_gib", 40)))
+    RECOVER_TO_GIB = max(MIN_FREE_GIB, float(os.environ.get("CACHE_RECOVER_TO_GIB", current.get("recover_to_gib", 60))))
+    if MAX_BANK_GIB <= 0 or MIN_FREE_GIB < 0:
+        raise RuntimeError("Invalid CachePlus size or free-space limit")
 
 
 def free_gib():
@@ -78,12 +101,14 @@ def bank_size_gib():
         return None
 
 
-def completed_jobs():
+def completed_jobs(measure_sizes=False, only=None):
     if VOLUME is None or not os.path.ismount(VOLUME):
         return []
     owned_root()
     result = []
     for path in JOBS.iterdir():
+        if only is not None and path.name != only:
+            continue
         try:
             info = path.lstat()
             if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or path.is_symlink():
@@ -92,17 +117,27 @@ def completed_jobs():
             data = json.loads(marker.read_text(encoding="utf-8"))
             if data.get("id") != path.name or not isinstance(data.get("at"), (int, float)):
                 continue
-            result.append((data["at"], path, folder_bytes(path)))
+            recorded = data.get("allocated_bytes")
+            size = (folder_bytes(path) if measure_sizes else
+                    recorded if isinstance(recorded, int) and recorded >= 0 else None)
+            result.append((data["at"], path, size))
         except (OSError, ValueError, TypeError):
             continue
     return sorted(result)
 
 
-def status():
-    jobs = completed_jobs()
-    free = free_gib()
-    evictable = sum(item[2] for item in jobs) / GIB
-    return {"free_gib": round(free, 2), "completed_cache_gib": round(evictable, 2),
+def status(deep=False):
+    with SETTINGS_LOCK:
+        refresh_settings()
+        jobs = completed_jobs(measure_sizes=deep)
+        free = free_gib()
+        known = sum(item[2] or 0 for item in jobs) / GIB
+        complete = all(item[2] is not None for item in jobs)
+        return {"free_gib": round(free, 2),
+            "completed_cache_gib": round(known, 2) if complete else None,
+            "completed_cache_gib_known": round(known, 2),
+            "completed_cache_size_complete": complete,
+            "size_measurement": "deep" if deep else "recorded-metadata",
             "usable_after_cache_reclaim_gib": round(free, 2),
             "reclaim_note": "Cache jobs may live on another physical device; reclaim is not counted as Mac free space until measured.",
             "volume_mounted": bool(VOLUME and os.path.ismount(VOLUME)),
@@ -134,7 +169,7 @@ def prune(force=False, only=None):
     with LOCK.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         now = time.time()
-        jobs = completed_jobs()
+        jobs = completed_jobs(measure_sizes=True, only=only)
         total = sum(item[2] for item in jobs) / GIB
         removed = []
         needs_space = free_gib() < MIN_FREE_GIB
@@ -235,7 +270,8 @@ def run_job(label, command):
         elif process is not None and code == 0:
             with LOCK.open("w") as global_lock:
                 fcntl.flock(global_lock, fcntl.LOCK_EX)
-                marker.write_text(json.dumps({"id": job.name, "at": time.time()}) + "\n", encoding="utf-8")
+                marker.write_text(json.dumps({"id": job.name, "at": time.time(),
+                                              "allocated_bytes": folder_bytes(job)}) + "\n", encoding="utf-8")
                 os.chmod(marker, 0o600)
         slot_lock.close()
     return code
@@ -244,7 +280,9 @@ def run_job(label, command):
 if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else "status"
     if action == "status":
-        print(json.dumps(status(), indent=2))
+        if len(sys.argv) > 3 or (len(sys.argv) == 3 and sys.argv[2] != "--deep"):
+            raise SystemExit("usage: bank.py status [--deep]")
+        print(json.dumps(status(deep="--deep" in sys.argv[2:]), indent=2))
     elif action == "prune":
         print(json.dumps(prune(), indent=2))
     elif action == "reclaim":

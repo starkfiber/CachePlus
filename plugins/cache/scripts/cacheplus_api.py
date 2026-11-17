@@ -9,6 +9,10 @@ import cachectl
 
 
 class Handler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Paths passed to /v1/assess can be private; keep them out of stderr.
+        pass
+
     def do_GET(self):
         parsed = urlsplit(self.path)
         try:
@@ -38,7 +42,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            # A timed-out local client may close while an earlier request finishes.
+            pass
 
     def do_POST(self):
         self.send_error(405, "CachePlus HTTP API is read-only; use the local CLI for jobs")
@@ -53,7 +61,12 @@ def main():
         parser.error("port must be 1–65535")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"CachePlus API listening on http://127.0.0.1:{server.server_port}", flush=True)
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
