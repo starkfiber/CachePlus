@@ -1,6 +1,6 @@
 {
   "name": "cache",
-  "interface": {"displayName": "Cache"},
+  "interface": {"displayName": "CachePlus"},
   "plugins": [
     {
       "name": "cache",
