@@ -14,14 +14,17 @@ from urllib.error import HTTPError
 
 SCRIPT = Path(__file__).resolve().parents[1] / "plugins/cache/scripts/cachectl.py"
 ROOT = SCRIPT.parent
+POLICY_OVERRIDES = ("CACHE_VOLUME", "CACHE_LIMIT_GB", "CACHE_MIN_FREE_GIB", "CACHE_RECOVER_TO_GIB")
+
+
+def fixture_environment():
+    return {key: value for key, value in os.environ.items() if key not in POLICY_OVERRIDES}
 
 
 class CacheSafetyTests(unittest.TestCase):
     def call(self, home, *args):
-        env = os.environ.copy()
+        env = fixture_environment()
         env["HOME"] = str(home)
-        for key in ("CACHE_VOLUME", "CACHE_LIMIT_GB", "CACHE_MIN_FREE_GIB", "CACHE_RECOVER_TO_GIB"):
-            env.pop(key, None)
         return subprocess.run([sys.executable, str(SCRIPT), *args], env=env,
                               text=True, capture_output=True)
 
@@ -136,7 +139,9 @@ class CacheSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             config = Path(temp) / "config.json"
             config.write_text(json.dumps({"volume": str(Path(temp) / "one"), "limit_gb": 10}))
-            with mock.patch.object(bank, "CONFIG_PATH", config), mock.patch.object(cachectl, "CONFIG_PATH", config):
+            with (mock.patch.object(bank, "CONFIG_PATH", config),
+                  mock.patch.object(cachectl, "CONFIG_PATH", config),
+                  mock.patch.dict(os.environ, fixture_environment(), clear=True)):
                 server = ThreadingHTTPServer(("127.0.0.1", 0), cacheplus_api.Handler)
                 thread = threading.Thread(target=server.serve_forever, daemon=True)
                 thread.start()
