@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 from http.server import ThreadingHTTPServer
 from urllib.request import urlopen, Request
@@ -77,8 +78,22 @@ class CacheSafetyTests(unittest.TestCase):
             replies = [json.loads(line) for line in process.stdout.splitlines()]
             self.assertEqual(len(replies), 3)
             self.assertEqual(replies[0]["result"]["protocolVersion"], "2025-11-25")
-            self.assertEqual(len(replies[1]["result"]["tools"]), 3)
+            self.assertEqual(len(replies[1]["result"]["tools"]), 4)
             self.assertEqual(replies[2]["result"]["structuredContent"]["decision"], "keep")
+
+    def test_mcp_run_requires_explicit_disposable_and_keeps_protocol_clean(self):
+        sys.path.insert(0, str(ROOT))
+        import cacheplus_mcp
+        request = {"method": "tools/call", "params": {"name": "cache_run",
+                   "arguments": {"label": "demo", "command": ["/usr/bin/true"], "disposable": False}}}
+        with self.assertRaises(ValueError):
+            cacheplus_mcp.dispatch(request)
+        request["params"]["arguments"]["disposable"] = True
+        with mock.patch.object(cacheplus_mcp.subprocess, "run") as called:
+            called.return_value.returncode = 0
+            result = cacheplus_mcp.dispatch(request)
+            self.assertEqual(result["structuredContent"]["exit_code"], 0)
+            self.assertEqual(called.call_args.kwargs["stdout"], subprocess.DEVNULL)
 
     def test_api_read_only(self):
         sys.path.insert(0, str(ROOT))
@@ -96,6 +111,7 @@ class CacheSafetyTests(unittest.TestCase):
             with self.assertRaises(HTTPError) as rejected:
                 urlopen(Request(base + "/v1/status", data=b"{}"), timeout=3)
             self.assertEqual(rejected.exception.code, 405)
+            rejected.exception.close()
         finally:
             server.shutdown()
             server.server_close()
