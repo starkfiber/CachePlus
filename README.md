@@ -35,8 +35,8 @@ python3 plugins/cache/scripts/cachectl.py reclaim
 
 ## Product status
 
-Version 0.2 is a local alpha. The plugin package and runner are ready for local installation and review. Publishing to a public repository or plugin directory is a separate release step.
+Version 0.2 is a public alpha. The source and local marketplace are available here; the plugin has not been submitted to the universal Plugins Directory.
 
 ## Development
 
-The plugin is self-contained under `plugins/cache/`, with a repository marketplace at `.agents/plugins/marketplace.json`. It uses Python's standard library and local system utilities. The original Mac bank is used automatically only on the machine where it is already installed. No remote service is required.
+The plugin is self-contained under `plugins/cache/`, with a repository marketplace at `.agents/plugins/marketplace.json`. It uses Python's standard library and local system utilities. The same bundled bank runs on configured computers. No remote service is required.
