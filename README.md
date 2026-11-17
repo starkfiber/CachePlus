@@ -45,7 +45,7 @@ The CLI supports `internal`, `usb`, `external`, `nas` and `cloud-mount` profile 
 
 The Codex plugin keeps the short **`/cache`** skill name. Install the marketplace with `codex plugin marketplace add starkfiber/CachePlus`, then `codex plugin add cache@cache`. Restart Codex if the skill does not appear immediately.
 
-CachePlus includes a **read-only MCP server**. Its tools report free space, list profiles and assess an exact path. A coding agent can use those signals before deciding whether a command is genuinely disposable. Configure a stdio MCP client to run `cacheplus mcp`. The plugin also bundles `plugins/cache/mcp.json`. Claude, Z.ai, Antigravity and other MCP clients may use the same command if they support local MCP servers; their client-specific setup has not been tested here. MCP tools do not execute jobs or remove files.
+CachePlus includes a **local MCP server**. Its tools report free space, list profiles, assess an exact path, and run a job only when the caller supplies `disposable: true`, a safe label and an explicit command array. The run tool uses the same guarded runner as the CLI; it is **not a sandbox** and cannot force an uncooperative build tool to write inside the cache. Configure a stdio MCP client to run `cacheplus mcp`. The plugin also bundles `plugins/cache/mcp.json`. Claude, Z.ai, Antigravity and other MCP clients may use the same command if they support local MCP servers; their client-specific setup has not been tested here. MCP does not reclaim files or configure drives.
 
 ## Local API
 
