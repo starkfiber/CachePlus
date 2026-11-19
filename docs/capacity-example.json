@@ -1,0 +1,29 @@
+{
+  "now_s": 1000,
+  "committed_bytes": 3000000000,
+  "measurements": {
+    "observed_at_s": 990,
+    "restore_verified_at_s": 900,
+    "primary_device": "synthetic-primary",
+    "backup_device": "synthetic-independent-backup",
+    "physical_free_bytes": 40000000000,
+    "volume_quota_bytes": 20000000000,
+    "volume_used_bytes": 3000000000,
+    "object_used_bytes": 2000000000,
+    "pending_write_peak_bytes": 500000000,
+    "backup_free_bytes": 15000000000
+  },
+  "policy": {
+    "founder_cap_bytes": 3000000000,
+    "physical_floor_bytes": 10000000000,
+    "restore_scratch_bytes": 5000000000,
+    "local_backup_growth_bytes": 1000000000,
+    "metadata_buffer_bytes": 1000000000,
+    "backup_floor_bytes": 5000000000,
+    "backup_growth_bytes": 1000000000,
+    "backup_ratio_numerator": 6,
+    "backup_ratio_denominator": 5,
+    "max_observation_age_s": 30,
+    "max_restore_age_s": 2592000
+  }
+}
