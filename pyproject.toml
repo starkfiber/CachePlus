@@ -13,7 +13,8 @@ keywords = ["cache", "storage", "codex", "mcp", "builds"]
 
 [project.scripts]
 cacheplus = "cacheplus:main"
+cacheplus-capacity = "cacheplus_capacity:main"
 
 [tool.setuptools]
-py-modules = ["cacheplus", "cachectl", "bank", "cacheplus_api", "cacheplus_mcp"]
+py-modules = ["cacheplus", "cachectl", "bank", "cacheplus_api", "cacheplus_mcp", "cacheplus_capacity"]
 package-dir = {"" = "plugins/cache/scripts"}

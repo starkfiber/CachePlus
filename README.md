@@ -15,6 +15,8 @@ mount a drive  →  configure a profile  →  run a disposable job  →  inspect
 
 CachePlus is local-first. It does not create accounts, format drives, upload files, move macOS swap or silently intercept every program. A remote mount can carry job data to its provider, so select it only when that is acceptable.
 
+The feature branch also carries a separate [hosted workspace MCP connector](docs/WORKSPACE-MCP.md) and a [read-only capacity admission foundation](docs/CAPACITY-ADMISSION.md). Neither changes the public 0.4.0 local-cache release or enables live hosted checkout admission.
+
 ## Start in two minutes
 
 Requires Python 3.10+ and macOS or Linux for job execution. Mount a writable volume you control first. CachePlus refuses an ordinary folder or missing mount.
