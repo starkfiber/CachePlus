@@ -16,5 +16,5 @@ cacheplus = "cacheplus:main"
 cacheplus-capacity = "cacheplus_capacity:main"
 
 [tool.setuptools]
-py-modules = ["cacheplus", "cachectl", "bank", "cacheplus_api", "cacheplus_mcp", "cacheplus_capacity"]
+py-modules = ["cacheplus", "cachectl", "bank", "cacheplus_api", "cacheplus_mcp", "cacheplus_capacity", "cacheplus_reservations"]
 package-dir = {"" = "plugins/cache/scripts"}
